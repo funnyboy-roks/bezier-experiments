@@ -1,5 +1,6 @@
 #include <raylib.h>
 #include <raymath.h>
+#include <string.h>
 #include <sys/time.h>
 #include <stdio.h>
 #include <stdbool.h>
@@ -9,7 +10,6 @@
 
 int steps = 30;
 bool show_traces = false;
-bool cubic = true;
 bool only_curve = false;
 
 void bézier(Vector2 start, Vector2 end, Vector2 mid, Color col)
@@ -34,6 +34,26 @@ void bézier(Vector2 start, Vector2 end, Vector2 mid, Color col)
     DrawLineEx(prev, end, 3, col);
 }
 
+void lerp_pts(float t, Vector2 *pts, size_t pts_len)
+{
+    for (size_t i = 0; i < pts_len - 1; ++i) {
+        pts[i] = Vector2Lerp(pts[i], pts[i + 1], t);
+    }
+}
+
+static const Color colours[] = {
+    GRAY,
+    YELLOW,
+    ORANGE,
+    PINK,
+    RED,
+    MAROON,
+    LIME,
+    SKYBLUE,
+    VIOLET,
+};
+#define colours_len (sizeof(colours) / sizeof(colours[0]))
+
 int main(void)
 {
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
@@ -49,19 +69,10 @@ int main(void)
         HEIGHT * .75,
     };
 
-
     Vector2 x_axis = {
         1, 
         0,
     };
-
-    // Vector2 p1_to_mid = Vector2Subtract(mid, point1);
-    // float p1_mid_len = Vector2Length(p1_to_mid);
-    // p1_to_mid = Vector2Normalize(p1_to_mid);
-
-    // Vector2 mid_to_p2 = Vector2Subtract(point2, mid);
-    // float mid_p2_len = Vector2Length(mid_to_p2);
-    // mid_to_p2 = Vector2Normalize(mid_to_p2);
 
     Vector2 mids[10] = {
         [0] = {
@@ -76,29 +87,40 @@ int main(void)
     };
 
     size_t mids_len = 2;
+    // -1  -- no selection
+    // -2  -- point1
+    // -3  -- point2
+    // 0.. -- mids[selected]
     int selected = -1;
     while (!WindowShouldClose()) {
         BeginDrawing();
 
             float mov;
-            if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
-                point1 = GetMousePosition();
-            } else if (IsMouseButtonPressed(MOUSE_BUTTON_MIDDLE)) {
-                for (int i = 0; i < mids_len; ++i) {
-                    float dist = Vector2DistanceSqr(mids[i], GetMousePosition());
-                    if (dist < 15 * 15) {
-                        selected = i;
-                        break;
+            if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+                const float dist_req = 15 * 15;
+                Vector2 mouse_pos = GetMousePosition();
+                if (Vector2DistanceSqr(point1, mouse_pos) < dist_req) {
+                    selected = -2;
+                } else if (Vector2DistanceSqr(point2, mouse_pos) < dist_req) {
+                    selected = -3;
+                } else {
+                    for (int i = 0; i < mids_len; ++i) {
+                        if (Vector2DistanceSqr(mids[i], GetMousePosition()) < dist_req) {
+                            selected = i;
+                            break;
+                        }
                     }
                 }
-            } else if (IsMouseButtonDown(MOUSE_BUTTON_MIDDLE)) {
-                if (selected != -1) {
+            } else if (IsMouseButtonDown(MOUSE_BUTTON_LEFT)) {
+                if (selected == -2) {
+                    point1 = GetMousePosition();
+                } else if (selected == -3) {
+                    point2 = GetMousePosition();
+                } else if (selected != -1) {
                     mids[selected] = GetMousePosition();
                 }
-            } else if (IsMouseButtonReleased(MOUSE_BUTTON_MIDDLE)) {
+            } else if (IsMouseButtonReleased(MOUSE_BUTTON_LEFT)) {
                 selected = -1;
-            } else if (IsMouseButtonDown(MOUSE_BUTTON_RIGHT)) {
-                point2 = GetMousePosition();
             } else if (IsKeyDown(KEY_ONE)) {
                 mids[0] = GetMousePosition();
             } else if (IsKeyDown(KEY_TWO)) {
@@ -122,10 +144,6 @@ int main(void)
             } else if (IsKeyPressed(KEY_T)) {
                 if(show_traces ^= true) {
                     only_curve = false;
-                }
-            } else if (IsKeyPressed(KEY_C)) {
-                if (mids_len == 2) {
-                    cubic ^= true;
                 }
             } else if (IsKeyPressed(KEY_O)) {
                 if (only_curve ^= true) {
@@ -168,56 +186,44 @@ int main(void)
             DrawText(buf, WIDTH * .01, HEIGHT * .01 + 30 * y++, 24, RAYWHITE);
             snprintf(buf, 256, "# of Mids: %ld", mids_len);
             DrawText(buf, WIDTH * .01, HEIGHT * .01 + 30 * y++, 24, RAYWHITE);
-            if (mids_len == 2) {
-                snprintf(buf, 256, "Use cubic: %s [C]", cubic ? "Yes" : "No");
-                DrawText(buf, WIDTH * .01, HEIGHT * .01 + 30 * y++, 24, RAYWHITE);
-            }
             snprintf(buf, 256, "Only show curve: %s [O]", only_curve ? "Yes" : "No");
             DrawText(buf, WIDTH * .01, HEIGHT * .01 + 30 * y++, 24, RAYWHITE);
 
             ClearBackground(GetColor(0x111111FF));
 
-            if (mids_len == 2 && cubic) {
-                Vector2 prev = point1;
-                for (float i = 0; i <= steps; ++i) {
-                    float lerp = (float) i / steps;
+            Vector2 prev = point1;
+            for (size_t i = 0; i <= steps; ++i) {
+                float lerp = (float) i / steps;
 
-                    Vector2 A = Vector2Lerp(point1, mids[0], lerp);
-                    Vector2 B = Vector2Lerp(mids[0], mids[1], lerp);
-                    Vector2 C = Vector2Lerp(mids[1], point2, lerp);
+                size_t points_len = 2 + mids_len;
+                Vector2 points[points_len];
+                points[0] = point1;
+                for (size_t j = 0; j < mids_len; ++j) {
+                    points[j + 1] = mids[j];
+                }
+                points[points_len - 1] = point2;
 
-                    Vector2 AB = Vector2Lerp(A, B, lerp);
-                    Vector2 BC = Vector2Lerp(B, C, lerp);
+                for (size_t step_count = 0; points_len > 1; step_count++) {
 
-                    Vector2 l = Vector2Lerp(AB, BC, lerp);
+                    lerp_pts(lerp, points, points_len);
+                    points_len -= 1;
 
                     if (show_traces) {
-                        DrawLineEx(A, B, 1, RAYWHITE);
-                        DrawLineEx(B, C, 1, YELLOW);
-                        DrawLineEx(AB, BC, 1, SKYBLUE);
+                        for (size_t j = 0; j < points_len - 1; ++j) {
+                            DrawLineEx(points[j], points[j + 1], 3, colours[step_count % colours_len]);
+                        }
                     }
-
-                    DrawLineEx(prev, l, 4, RAYWHITE);
-                    prev = l;
                 }
-                DrawLineEx(prev, point2, 4, RAYWHITE);
-            } else {
-                Vector2 prev = point1;
-                for (int i = 0; i < mids_len - 1; ++i) {
-                    Vector2 point = Vector2Lerp(mids[i], mids[i + 1], .5);
-                    bézier(prev, point, mids[i], RAYWHITE);
-                    prev = point;
-                }
-                bézier(prev, point2, mids[mids_len - 1], RAYWHITE);
+                DrawLineEx(prev, points[0], 4, RAYWHITE);
+                prev = points[0];
             }
+            DrawLineEx(prev, point2, 4, RAYWHITE);
 
             if (!only_curve) {
                 DrawLineEx(point1, mids[0], 1, GRAY);
-                if (!cubic || mids_len != 2) {
-                    for(int i = 0; i < mids_len - 1; ++i) {
-                        DrawLineEx(mids[i], mids[i+1], 1, GRAY);
-                        DrawCircleV(Vector2Lerp(mids[i], mids[i + 1], .5), 4, GRAY);
-                    }
+                for(int i = 0; i < mids_len - 1; ++i) {
+                    DrawLineEx(mids[i], mids[i+1], 1, GRAY);
+                    DrawCircleV(Vector2Lerp(mids[i], mids[i + 1], .5), 4, GRAY);
                 }
                 DrawLineEx(mids[mids_len - 1], point2, 1, GRAY);
 
@@ -228,14 +234,6 @@ int main(void)
                     DrawCircleV(mids[i],   8, DARKGREEN);
                 }
             }
-
-            // Vector2 true_mid = Vector2Lerp(point1, point2, 0.5);
-            // if (Vector2DistanceSqr(mid, true_mid) > .01) {
-            //     mid = Vector2Lerp(mid, true_mid, .0005);
-            // }
-            // DrawLineBezier(point1, point2, 2, YELLOW);
-
-            // Vector2 curr = Vector2Add(point1, (Vector2) { WIDTH * .25, 0 } );
 
         EndDrawing();
     }
