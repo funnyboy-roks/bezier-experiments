@@ -9,15 +9,13 @@ certainly not the most efficient.
 
 | Control              | Action                                                |
 | -------------------- | ----------------------------------------------------- |
-| Left click           | Move start point                                      |
-| Right click          | Move end point                                        |
-| Middle click         | Drag middle point that is hovered over                |
+| Left Click + Drag    | Move point                                            |
 | Scroll Up/Down       | Increase/Decrease count of steps when drawing curves  |
 | Shift Scroll Up/Down | Increase/Decrease count of mid points (min 1, max 10) |
 | 1, 2, 3, ..., 0      | Put a midpoint at your cursor position                |
 | T                    | Toggle showing traces                                 |
-| C                    | Toggle cubic Bézier curves for 2 midpoints            |
 | O                    | Toggle showing only the curve                         |
+| R                    | Reset all points                                      |
 
 ## Building
 
