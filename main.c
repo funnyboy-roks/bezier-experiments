@@ -7,10 +7,38 @@
 
 #define WIDTH 800
 #define HEIGHT 800
+#define MIDS_LEN 10
 
-int steps = 30;
+int steps = 0;
 bool show_traces = false;
 bool only_curve = false;
+Vector2 point1 = { 0 };
+Vector2 point2 = { 0 };
+Vector2 mids[MIDS_LEN] = { 0 };
+size_t mids_count = 0;
+
+void reset(void)
+{
+    steps = 60;
+    show_traces = false;
+    only_curve = false;
+
+    point1.x = WIDTH * .25;
+    point1.y = HEIGHT * .75;
+
+    point2.x = WIDTH * .75;
+    point2.y = HEIGHT * .25;
+
+    memset(mids, 0, sizeof(mids));
+
+    mids[0].x = WIDTH * .75;
+    mids[0].y = HEIGHT * .75;
+    
+    mids[1].x = WIDTH * .25;
+    mids[1].y = HEIGHT * .25;
+
+    mids_count = 2;
+}
 
 void bézier(Vector2 start, Vector2 end, Vector2 mid, Color col)
 {
@@ -54,37 +82,12 @@ static const Color colours[] = {
 };
 #define colours_len (sizeof(colours) / sizeof(colours[0]))
 
-Vector2 point1 = { 0 };
-Vector2 point2 = { 0 };
-#define MIDS_LEN 10
-Vector2 mids[MIDS_LEN] = { 0 };
-size_t mids_count = 0;
-
-void reset_points(void)
-{
-    point1.x = WIDTH * .25;
-    point1.y = HEIGHT * .75;
-
-    point2.x = WIDTH * .75;
-    point2.y = HEIGHT * .25;
-
-    memset(mids, 0, sizeof(mids));
-
-    mids[0].x = WIDTH * .75;
-    mids[0].y = HEIGHT * .75;
-    
-    mids[1].x = WIDTH * .25;
-    mids[1].y = HEIGHT * .25;
-
-    mids_count = 2;
-}
-
 int main(void)
 {
     SetConfigFlags(FLAG_MSAA_4X_HINT | FLAG_WINDOW_RESIZABLE);
     InitWindow(WIDTH, HEIGHT, "Bézier Experiments");
 
-    reset_points();
+    reset();
 
     // -1  -- no selection
     // -2  -- point1
@@ -150,7 +153,7 @@ int main(void)
                     show_traces = false;
                 }
             } else if (IsKeyPressed(KEY_R)) {
-                reset_points();
+                reset();
             } else if ((mov = GetMouseWheelMove())) {
                 if (IsKeyDown(KEY_LEFT_SHIFT)) {
                     if (mov > 0) {

@@ -15,7 +15,7 @@ certainly not the most efficient.
 | 1, 2, 3, ..., 0      | Put a midpoint at your cursor position                |
 | T                    | Toggle showing traces                                 |
 | O                    | Toggle showing only the curve                         |
-| R                    | Reset all points                                      |
+| R                    | Reset everything                                      |
 
 ## Building
 
